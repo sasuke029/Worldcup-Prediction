@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kickoff Predictor — World Cup Match Outcome</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0F1B14;
+    --surface: #17251C;
+    --surface-raised: #1E3226;
+    --line: #2A4234;
+    --line-soft: rgba(242,239,226,0.08);
+    --chalk: #F2EFE2;
+    --sage: #8FA396;
+    --sage-dim: #64766B;
+    --gold: #C99A3B;
+    --gold-bright: #E0B75C;
+    --brick: #B5502E;
+    --font-display: 'Oswald', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--chalk);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  ::selection { background: var(--gold); color: var(--bg); }
+
+  :focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 3px; }
+
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 24px; }
+
+  .pitch-bg {
+    position: relative;
+    overflow: hidden;
+    padding: 64px 0 20px;
+  }
+
+  .pitch-bg svg.field-lines {
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 1400px;
+    max-width: none;
+    opacity: 0.55;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .pitch-bg .wrap { position: relative; z-index: 1; }
+
+  .eyebrow {
+    font-family: var(--font-display);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin: 0 0 14px;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(32px, 5vw, 48px);
+    line-height: 1.08;
+    margin: 0;
+    max-width: 620px;
+    letter-spacing: -0.01em;
+  }
+
+  .sub {
+    color: var(--sage);
+    font-size: 16px;
+    max-width: 520px;
+    margin: 18px 0 0;
+  }
+
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+  /* ---------- MATCHUP BUILDER ---------- */
+
+  .matchup {
+    display: grid;
+    grid-template-columns: 1fr 76px 1fr;
+    gap: 16px;
+    align-items: start;
+    margin-top: 48px;
+  }
+
+  .team-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+
+  .team-card-label {
+    font-family: var(--font-display);
+    font-size: 11.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--sage-dim);
+    margin: 0 0 14px;
+  }
+
+  .badge-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .badge {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-size: 14px;
+    letter-spacing: 0.03em;
+    color: var(--gold-bright);
+    flex-shrink: 0;
+  }
+
+  select {
+    width: 100%;
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    color: var(--chalk);
+    font-family: var(--font-body);
+    font-size: 15px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238FA396' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+  }
+
+  select:focus { border-color: var(--gold); }
+
+  .stat-list {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 14px;
+  }
+
+  .stat-item {
+    border-top: 1px solid var(--line-soft);
+    padding-top: 8px;
+  }
+
+  .stat-item-label {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--sage-dim);
+    margin-bottom: 4px;
+  }
+
+  .stat-item-value {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    color: var(--chalk);
+  }
+
+  .host-toggle {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13.5px;
+    color: var(--sage);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .host-toggle input {
+    width: 16px; height: 16px;
+    accent-color: var(--gold);
+    cursor: pointer;
+  }
+
+  .kickoff-mark {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 40px;
+    gap: 10px;
+  }
+
+  .kickoff-mark svg { width: 56px; height: 56px; }
+
+  .kickoff-mark span {
+    font-family: var(--font-display);
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    color: var(--sage-dim);
+  }
+
+  .controls-row {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  .ghost-btn {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--sage);
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    padding: 9px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ghost-btn:hover { border-color: var(--gold); color: var(--gold-bright); }
+
+  /* ---------- RESULT ---------- */
+
+  .result {
+    margin-top: 44px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 30px 28px;
+  }
+
+  .result-headline {
+    font-family: var(--font-display);
+    font-size: 19px;
+    color: var(--chalk);
+    margin: 0 0 26px;
+    text-align: center;
+  }
+
+  .result-headline .hl { color: var(--gold-bright); }
+
+  .bars {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .bar-row {
+    display: grid;
+    grid-template-columns: 120px 1fr 64px;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .bar-label {
+    font-size: 13.5px;
+    color: var(--sage);
+    text-align: right;
+  }
+
+  .bar-track {
+    height: 14px;
+    background: var(--surface-raised);
+    border-radius: 7px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 7px;
+    background: var(--sage-dim);
+    width: 0%;
+    transition: width 0.5s ease;
+  }
+
+  .bar-fill.leader { background: var(--gold-bright); }
+
+  .bar-pct {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    color: var(--chalk);
+    text-align: left;
+  }
+
+  .footnote {
+    margin-top: 26px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line-soft);
+    font-size: 12.5px;
+    color: var(--sage-dim);
+    line-height: 1.6;
+  }
+
+  footer.credit {
+    padding: 40px 0 64px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--sage-dim);
+  }
+
+  @media (max-width: 620px) {
+    .matchup { grid-template-columns: 1fr; }
+    .kickoff-mark { padding-top: 0; flex-direction: row; justify-content: center; }
+    .bar-row { grid-template-columns: 84px 1fr 52px; gap: 8px; }
+    .bar-label { font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="pitch-bg">
+  <svg class="field-lines" viewBox="0 0 1400 420" aria-hidden="true">
+    <line x1="700" y1="0" x2="700" y2="420" stroke="#2A4234" stroke-width="1.5"/>
+    <circle cx="700" cy="210" r="70" fill="none" stroke="#2A4234" stroke-width="1.5"/>
+    <circle cx="700" cy="210" r="3" fill="#2A4234"/>
+    <rect x="0" y="90" width="90" height="240" fill="none" stroke="#2A4234" stroke-width="1.5"/>
+    <rect x="1310" y="90" width="90" height="240" fill="none" stroke="#2A4234" stroke-width="1.5"/>
+  </svg>
+  <div class="wrap">
+    <p class="eyebrow">Interactive predictor</p>
+    <h1>Pick two teams. See who&rsquo;s favoured.</h1>
+    <p class="sub">Powered by the from-scratch logistic regression model &mdash; trained on FIFA rank differential, recent form, goal record, and host advantage.</p>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="matchup">
+    <div class="team-card">
+      <p class="team-card-label">Team A</p>
+      <div class="badge-row">
+        <div class="badge" id="badgeA">ARG</div>
+        <select id="teamA" aria-label="Select team A"></select>
+      </div>
+      <div class="stat-list" id="statsA"></div>
+      <label class="host-toggle">
+        <input type="checkbox" id="hostA">
+        Hosting this tournament
+      </label>
+    </div>
+
+    <div class="kickoff-mark">
+      <svg viewBox="0 0 56 56" aria-hidden="true">
+        <circle cx="28" cy="28" r="26" fill="none" stroke="#2A4234" stroke-width="1.5"/>
+        <circle cx="28" cy="28" r="3" fill="#C99A3B"/>
+      </svg>
+      <span>VS</span>
+    </div>
+
+    <div class="team-card">
+      <p class="team-card-label">Team B</p>
+      <div class="badge-row">
+        <div class="badge" id="badgeB">FRA</div>
+        <select id="teamB" aria-label="Select team B"></select>
+      </div>
+      <div class="stat-list" id="statsB"></div>
+      <label class="host-toggle">
+        <input type="checkbox" id="hostB">
+        Hosting this tournament
+      </label>
+    </div>
+  </div>
+
+  <div class="controls-row">
+    <button class="ghost-btn" id="swapBtn">Swap sides</button>
+    <button class="ghost-btn" id="randomBtn">Randomise matchup</button>
+  </div>
+
+  <div class="result" aria-live="polite">
+    <p class="result-headline" id="headline"></p>
+    <div class="bars">
+      <div class="bar-row">
+        <span class="bar-label" id="labelA">Argentina win</span>
+        <div class="bar-track"><div class="bar-fill" id="fillA"></div></div>
+        <span class="bar-pct mono" id="pctA">0%</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Draw</span>
+        <div class="bar-track"><div class="bar-fill" id="fillDraw"></div></div>
+        <span class="bar-pct mono" id="pctDraw">0%</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label" id="labelB">France win</span>
+        <div class="bar-track"><div class="bar-fill" id="fillB"></div></div>
+        <span class="bar-pct mono" id="pctB">0%</span>
+      </div>
+    </div>
+    <p id="weightsSourceNote" class="footnote" style="border-top:none;margin-top:0;padding-top:0;color:var(--gold);"></p>
+    <p class="footnote">Win probabilities come directly from the trained model&rsquo;s weights (rank differential 0.774, host 0.180, goals scored 0.155, form 0.086, goals conceded 0.075). The model was trained as a binary win/no-win classifier, so the draw share here is an estimated residual, not a separate trained outcome &mdash; a true three-way split would need the multinomial extension noted in the project write-up. Team stats below are an illustrative sample squad for this demo, not a live data feed.</p>
+  </div>
+</div>
+
+<footer class="credit">Built from scratch with NumPy &middot; logistic regression, no ML libraries in the model itself</footer>
+
+<script>
+  const teams = [
+    { name: 'Argentina', code: 'ARG', rank: 1,  form: 0.80, goals: 2.1, conceded: 0.6 },
+    { name: 'France',    code: 'FRA', rank: 2,  form: 0.70, goals: 2.0, conceded: 0.7 },
+    { name: 'Brazil',    code: 'BRA', rank: 3,  form: 0.75, goals: 2.2, conceded: 0.8 },
+    { name: 'England',   code: 'ENG', rank: 4,  form: 0.70, goals: 1.8, conceded: 0.7 },
+    { name: 'Belgium',   code: 'BEL', rank: 5,  form: 0.60, goals: 1.7, conceded: 0.9 },
+    { name: 'Portugal',  code: 'POR', rank: 6,  form: 0.65, goals: 1.9, conceded: 0.8 },
+    { name: 'Netherlands', code: 'NED', rank: 7, form: 0.65, goals: 1.8, conceded: 0.8 },
+    { name: 'Spain',     code: 'ESP', rank: 8,  form: 0.70, goals: 1.9, conceded: 0.7 },
+    { name: 'Italy',     code: 'ITA', rank: 9,  form: 0.55, goals: 1.5, conceded: 0.9 },
+    { name: 'Croatia',   code: 'CRO', rank: 10, form: 0.60, goals: 1.6, conceded: 0.9 },
+    { name: 'USA',       code: 'USA', rank: 11, form: 0.50, goals: 1.4, conceded: 1.0 },
+    { name: 'Colombia',  code: 'COL', rank: 12, form: 0.55, goals: 1.5, conceded: 1.0 },
+    { name: 'Morocco',   code: 'MAR', rank: 13, form: 0.60, goals: 1.4, conceded: 0.8 },
+    { name: 'Uruguay',   code: 'URU', rank: 14, form: 0.55, goals: 1.5, conceded: 0.9 },
+    { name: 'Mexico',    code: 'MEX', rank: 15, form: 0.50, goals: 1.4, conceded: 1.1 },
+    { name: 'Germany',   code: 'GER', rank: 16, form: 0.50, goals: 1.6, conceded: 1.1 },
+    { name: 'Japan',     code: 'JPN', rank: 17, form: 0.50, goals: 1.4, conceded: 1.0 },
+    { name: 'Senegal',   code: 'SEN', rank: 18, form: 0.50, goals: 1.3, conceded: 1.0 },
+    { name: 'Switzerland', code: 'SUI', rank: 19, form: 0.45, goals: 1.3, conceded: 1.0 },
+    { name: 'Denmark',   code: 'DEN', rank: 20, form: 0.45, goals: 1.3, conceded: 1.0 },
+    { name: 'South Korea', code: 'KOR', rank: 22, form: 0.40, goals: 1.2, conceded: 1.2 },
+    { name: 'Poland',    code: 'POL', rank: 28, form: 0.40, goals: 1.1, conceded: 1.2 },
+    { name: 'Ghana',     code: 'GHA', rank: 40, form: 0.35, goals: 1.0, conceded: 1.4 },
+    { name: 'Saudi Arabia', code: 'KSA', rank: 45, form: 0.30, goals: 0.9, conceded: 1.4 }
+  ];
+
+  let weights = { form: 0.0855, goals: 0.1553, conceded: 0.0745, host: 0.1799, rankDiff: 0.7735 };
+  let bias = -0.5362;
+
+  let scalers = {
+    form:     { mean: 0.55, std: 0.16 },
+    goals:    { mean: 1.5,  std: 0.38 },
+    conceded: { mean: 1.0,  std: 0.22 },
+    host:     { mean: 0.063, std: 0.243 },
+    rankDiff: { mean: 0,    std: 20 }
+  };
+
+  async function loadRealWeights() {
+    try {
+      const res = await fetch('model_weights.json');
+      if (!res.ok) return;
+      const data = await res.json();
+      weights = {
+        form: data.weights.form_5,
+        goals: data.weights.goals_avg_5,
+        conceded: data.weights.conceded_avg_5,
+        host: data.weights.is_host,
+        rankDiff: data.weights.rank_diff,
+      };
+      bias = data.bias;
+      scalers = {
+        form:     { mean: data.scaler_mean.form_5,        std: data.scaler_std.form_5 },
+        goals:    { mean: data.scaler_mean.goals_avg_5,    std: data.scaler_std.goals_avg_5 },
+        conceded: { mean: data.scaler_mean.conceded_avg_5, std: data.scaler_std.conceded_avg_5 },
+        host:     { mean: data.scaler_mean.is_host,        std: data.scaler_std.is_host },
+        rankDiff: { mean: data.scaler_mean.rank_diff,      std: data.scaler_std.rank_diff },
+      };
+      const note = document.getElementById('weightsSourceNote');
+      if (note) {
+        note.textContent = `Using your exact trained weights — ${data.trained_on_rows} matches, CV AUC ${data.cv_auc_mean.toFixed(3)}.`;
+      }
+    } catch (e) {
+      // model_weights.json not found, or page opened via file:// — keep demo weights
+    }
+  }
+
+  function std(v, key) { return (v - scalers[key].mean) / scalers[key].std; }
+  function sigmoid(z) { return 1 / (1 + Math.exp(-z)); }
+
+  function teamWinProb(team, opponent, isHost) {
+    const rankDiff = opponent.rank - team.rank;
+    const z = weights.form * std(team.form, 'form')
+            + weights.goals * std(team.goals, 'goals')
+            + weights.conceded * std(team.conceded, 'conceded')
+            + weights.host * std(isHost ? 1 : 0, 'host')
+            + weights.rankDiff * std(rankDiff, 'rankDiff')
+            + bias;
+    return sigmoid(z);
+  }
+
+  const teamASelect = document.getElementById('teamA');
+  const teamBSelect = document.getElementById('teamB');
+  const hostA = document.getElementById('hostA');
+  const hostB = document.getElementById('hostB');
+
+  teams.forEach((t, i) => {
+    const optA = document.createElement('option');
+    optA.value = i; optA.textContent = `${t.name} (rank ${t.rank})`;
+    teamASelect.appendChild(optA);
+    const optB = document.createElement('option');
+    optB.value = i; optB.textContent = `${t.name} (rank ${t.rank})`;
+    teamBSelect.appendChild(optB);
+  });
+  teamASelect.value = 0;
+  teamBSelect.value = 1;
+
+  function renderStats(containerId, team) {
+    document.getElementById(containerId).innerHTML = `
+      <div class="stat-item"><div class="stat-item-label">FIFA rank</div><div class="stat-item-value mono">${team.rank}</div></div>
+      <div class="stat-item"><div class="stat-item-label">Recent form</div><div class="stat-item-value mono">${(team.form * 100).toFixed(0)}%</div></div>
+      <div class="stat-item"><div class="stat-item-label">Goals scored (avg)</div><div class="stat-item-value mono">${team.goals.toFixed(1)}</div></div>
+      <div class="stat-item"><div class="stat-item-label">Goals conceded (avg)</div><div class="stat-item-value mono">${team.conceded.toFixed(1)}</div></div>
+    `;
+  }
+
+  function update() {
+    const teamA = teams[teamASelect.value];
+    const teamB = teams[teamBSelect.value];
+
+    document.getElementById('badgeA').textContent = teamA.code;
+    document.getElementById('badgeB').textContent = teamB.code;
+    renderStats('statsA', teamA);
+    renderStats('statsB', teamB);
+
+    if (hostA.checked) hostB.checked = false;
+    if (hostB.checked) hostA.checked = false;
+
+    const pA = teamWinProb(teamA, teamB, hostA.checked);
+    const pB = teamWinProb(teamB, teamA, hostB.checked);
+    const drawFloor = 0.15;
+    const pDraw = Math.max(drawFloor, 1 - pA - pB);
+    const total = pA + pB + pDraw;
+
+    const finalA = (pA / total) * 100;
+    const finalB = (pB / total) * 100;
+    const finalDraw = (pDraw / total) * 100;
+
+    document.getElementById('fillA').style.width = finalA + '%';
+    document.getElementById('fillB').style.width = finalB + '%';
+    document.getElementById('fillDraw').style.width = finalDraw + '%';
+    document.getElementById('pctA').textContent = finalA.toFixed(1) + '%';
+    document.getElementById('pctB').textContent = finalB.toFixed(1) + '%';
+    document.getElementById('pctDraw').textContent = finalDraw.toFixed(1) + '%';
+    document.getElementById('labelA').textContent = teamA.name + ' win';
+    document.getElementById('labelB').textContent = teamB.name + ' win';
+
+    document.querySelectorAll('.bar-fill').forEach(el => el.classList.remove('leader'));
+    const max = Math.max(finalA, finalB, finalDraw);
+    if (max === finalA) document.getElementById('fillA').classList.add('leader');
+    else if (max === finalB) document.getElementById('fillB').classList.add('leader');
+    else document.getElementById('fillDraw').classList.add('leader');
+
+    let headline;
+    if (max === finalA) headline = `<span class="hl">${teamA.name}</span> are favoured, ${finalA.toFixed(0)}% to win`;
+    else if (max === finalB) headline = `<span class="hl">${teamB.name}</span> are favoured, ${finalB.toFixed(0)}% to win`;
+    else headline = `Too close to call &mdash; a <span class="hl">draw</span> is the likeliest result`;
+    document.getElementById('headline').innerHTML = headline;
+  }
+
+  document.getElementById('swapBtn').addEventListener('click', () => {
+    const a = teamASelect.value;
+    teamASelect.value = teamBSelect.value;
+    teamBSelect.value = a;
+    const ha = hostA.checked;
+    hostA.checked = hostB.checked;
+    hostB.checked = ha;
+    update();
+  });
+
+  document.getElementById('randomBtn').addEventListener('click', () => {
+    let i = Math.floor(Math.random() * teams.length);
+    let j = Math.floor(Math.random() * teams.length);
+    while (j === i) j = Math.floor(Math.random() * teams.length);
+    teamASelect.value = i;
+    teamBSelect.value = j;
+    hostA.checked = false;
+    hostB.checked = false;
+    update();
+  });
+
+  [teamASelect, teamBSelect, hostA, hostB].forEach(el => el.addEventListener('change', update));
+
+  update();
+  loadRealWeights().then(update);
+</script>
+
+</body>
+</html>
